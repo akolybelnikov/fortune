@@ -1,116 +1,85 @@
 package com.example.application.views.list;
 
-import com.example.application.data.entity.Contact;
-import com.example.application.data.service.CrmService;
+import com.example.application.data.entity.Quote;
+import com.example.application.data.service.QuoteService;
 import com.vaadin.flow.component.button.Button;
-import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
-import com.vaadin.flow.component.textfield.TextField;
+import com.vaadin.flow.component.textfield.TextArea;
 import com.vaadin.flow.data.value.ValueChangeMode;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.theme.Theme;
 
 @Route(value = "")
-@Theme(themeFolder = "flowcrmtutorial")
-@PageTitle("Contacts | Vaadin CRM")
+@Theme(themeFolder = "fortunequotes")
+@PageTitle("Fortune | Quotes")
 public class ListView extends VerticalLayout {
-    Grid<Contact> grid = new Grid<>(Contact.class);
-    TextField filterText = new TextField();
-    ContactForm form;
-    CrmService service;
+    Paragraph displayQuote = new Paragraph();
+    QuoteService service;
 
-    public ListView(CrmService service) {
+    public ListView(QuoteService service) {
         this.service = service;
         addClassName("list-view");
         setSizeFull();
-        configureGrid();
-        configureForm();
-
         add(getToolbar(), getContent());
-        updateList();
-        closeEditor();
+        updateText();
     }
 
     private HorizontalLayout getContent() {
-        HorizontalLayout content = new HorizontalLayout(grid, form);
-        content.setFlexGrow(2, grid);
-        content.setFlexGrow(1, form);
+        Button refresh = new Button("Refresh quote");
+        refresh.addClickListener(click -> updateText());
+
+        VerticalLayout innerContent = new VerticalLayout(displayQuote, refresh);
+        innerContent.setSizeFull();
+        innerContent.setJustifyContentMode(JustifyContentMode.AROUND);
+        innerContent.setAlignItems(Alignment.CENTER);
+
+        HorizontalLayout content = new HorizontalLayout(innerContent);
         content.addClassNames("content");
         content.setSizeFull();
+        content.setAlignItems(Alignment.CENTER);
+
+        displayQuote.addClassName("quote");
+
         return content;
     }
 
-    private void configureForm() {
-        form = new ContactForm(service.findAllCompanies(), service.findAllStatuses());
-        form.setWidth("25em");
-        form.addListener(ContactForm.SaveEvent.class, this::saveContact);
-        form.addListener(ContactForm.DeleteEvent.class, this::deleteContact);
-        form.addListener(ContactForm.CloseEvent.class, e -> closeEditor());
-    }
-
-    private void saveContact(ContactForm.SaveEvent event) {
-        service.saveContact(event.getContact());
-        updateList();
-        closeEditor();
-    }
-
-    private void deleteContact(ContactForm.DeleteEvent event) {
-        service.deleteContact(event.getContact());
-        updateList();
-        closeEditor();
-    }
-
-    private void configureGrid() {
-        grid.addClassNames("contact-grid");
-        grid.setSizeFull();
-        grid.setColumns("firstName", "lastName", "email");
-        grid.addColumn(contact -> contact.getStatus().getName()).setHeader("Status");
-        grid.addColumn(contact -> contact.getCompany().getName()).setHeader("Company");
-        grid.getColumns().forEach(col -> col.setAutoWidth(true));
-
-        grid.asSingleSelect().addValueChangeListener(event ->
-                editContact(event.getValue()));
-    }
-
     private HorizontalLayout getToolbar() {
-        filterText.setPlaceholder("Filter by name...");
-        filterText.setClearButtonVisible(true);
-        filterText.setValueChangeMode(ValueChangeMode.LAZY);
-        filterText.addValueChangeListener(e -> updateList());
+        TextArea newQuote = new TextArea();
+        newQuote.setPlaceholder("Create a new quote");
+        newQuote.setClearButtonVisible(true);
+        newQuote.setSizeFull();
+        newQuote.setValueChangeMode(ValueChangeMode.LAZY);
 
-        Button addContactButton = new Button("Add contact");
-        addContactButton.addClickListener(click -> addContact());
+        Button save = new Button("Add quote");
+        save.setMinWidth("fit-content");
+        save.addClickListener(click -> {
+            saveQuote(newQuote.getValue());
+            newQuote.setValue("");
+        });
 
-        HorizontalLayout toolbar = new HorizontalLayout(filterText, addContactButton);
+        HorizontalLayout toolbar = new HorizontalLayout(newQuote, save);
         toolbar.addClassName("toolbar");
+        toolbar.setWidthFull();
+
         return toolbar;
     }
 
-    public void editContact(Contact contact) {
-        if (contact == null) {
-            closeEditor();
-        } else {
-            form.setContact(contact);
-            form.setVisible(true);
-            addClassName("editing");
+    private void saveQuote(String quote) {
+        if (quote.isBlank() || quote.isEmpty()) {
+            return;
         }
+        Quote newQuote = new Quote();
+        newQuote.setQuote(quote);
+        service.saveQuote(newQuote);
+        displayQuote.setText(quote);
     }
 
-    private void closeEditor() {
-        form.setContact(null);
-        form.setVisible(false);
-        removeClassName("editing");
-    }
-
-    private void addContact() {
-        grid.asSingleSelect().clear();
-        editContact(new Contact());
-    }
-
-
-    private void updateList() {
-        grid.setItems(service.findAllContacts(filterText.getValue()));
+    private void updateText() {
+        String quote = service.findQuote();
+        String q = quote.replaceAll("\n", "<br>");
+        displayQuote.getElement().setProperty("innerHTML", q);
     }
 }
